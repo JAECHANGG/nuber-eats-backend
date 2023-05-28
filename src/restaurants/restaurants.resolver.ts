@@ -1,12 +1,14 @@
 import { CreateRestaurantDto } from './dtos/create-restaurant.dto';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Restaurant } from './entities/restaurant.entity';
+import { RestaurantService } from './restaurants.service';
 
 @Resolver((of) => Restaurant)
 export class RestaurantResolver {
+  constructor(private readonly restaurantService: RestaurantService) {} // RestaurantService를 inject
   @Query((returns) => [Restaurant])
-  restaurants(@Args('veganOnly') veganOnly: boolean): Restaurant[] {
-    return [];
+  restaurants(): Promise<Restaurant[]> {
+    return this.restaurantService.getAll();
   }
 
   // Mutation 방법 1
