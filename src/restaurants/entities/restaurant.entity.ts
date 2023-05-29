@@ -1,6 +1,13 @@
 // ObjectType를 만드는 파일
 
 import { Field, ObjectType } from '@nestjs/graphql';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @ObjectType() // GraphQL의 스키마를 빌드하기 위한 역할
@@ -12,17 +19,30 @@ export class Restaurant {
 
   @Field(() => String)
   @Column()
+  @IsString()
+  @Length(5)
   name: string;
 
-  @Field((type) => Boolean)
-  @Column()
+  @Field((type) => Boolean, { defaultValue: true })
+  @Column({ default: true })
+  @IsBoolean()
+  @IsOptional()
   isVegan: boolean;
 
   @Field(() => String)
   @Column()
+  @IsString()
   address: string;
 
   @Field(() => String)
   @Column()
+  @IsString()
+  @IsOptional()
   ownerName: string;
+
+  @Field(() => String)
+  @Column()
+  @IsString()
+  @IsOptional()
+  categoryName: string;
 }
