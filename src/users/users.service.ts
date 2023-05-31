@@ -1,14 +1,17 @@
+import { JwtService } from 'src/jwt/jwt.service';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateAccountInput } from './dtos/create-account.dto';
 import { LoginInput } from './dtos/login.dto';
 import { User } from './entities/user.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
+    private readonly jwtService: JwtService,
   ) {}
 
   async createAccount({
@@ -32,8 +35,6 @@ export class UsersService {
     email,
     password,
   }: LoginInput): Promise<{ ok: boolean; error?: string; token?: string }> {
-    // 3. JWT를 만들고 User에게 주기
-
     try {
       // 1. email을 가진 User을 찾아라
       const user = await this.users.findOne({ where: { email } });
@@ -52,9 +53,12 @@ export class UsersService {
           error: 'Wrong password',
         };
       }
+
+      // 3. JWT를 만들고 User에게 주기
+      const token = this.jwtService.sign(user.id);
       return {
         ok: true,
-        token: 'lalalalala',
+        token,
       };
     } catch (error) {
       return {

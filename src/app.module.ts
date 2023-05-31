@@ -9,6 +9,7 @@ import { Restaurant } from './restaurants/entities/restaurant.entity';
 import { UsersModule } from './users/users.module';
 import { CommonModule } from './common/common.module';
 import { User } from './users/entities/user.entity';
+import { JwtModule } from './jwt/jwt.module';
 
 // GraphQLModule.forRoot()은 GraphQL과 nestJS를 연결해줌
 // Apollo server 서버를 기반으로 작동한다.
@@ -25,6 +26,7 @@ import { User } from './users/entities/user.entity';
         DB_USERNAME: Joi.string().required(),
         DB_PASSWORD: Joi.string().required(),
         DB_NAME: Joi.string().required(),
+        SECRET_KEY: Joi.string().required(), // token을 지정하기 위해 사용하는 PrivateKey
       }),
     }),
     TypeOrmModule.forRoot({
@@ -41,6 +43,9 @@ import { User } from './users/entities/user.entity';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
+    }),
+    JwtModule.forRoot({
+      privateKey: process.env.SECRET_KEY,
     }),
     UsersModule,
     CommonModule,
