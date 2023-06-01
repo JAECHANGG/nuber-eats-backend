@@ -1,4 +1,7 @@
+import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { AuthUser } from 'src/auth/auth-user.decorator';
+import { AuthGuard } from 'src/auth/auth.guard';
 import {
   CreateAccountInput,
   CreateAccountOutput,
@@ -49,8 +52,11 @@ export class UsersResolver {
   }
 
   // token의 정보를 받고 사용자가 누군지 판별하는 방법
-  @Query((returns) => User)
   // middleWare 설정 : 요청을 받고 요청 처리 후에 next() 함수를 호출
   // middleWare에서 token을 가져간 뒤, 그 token을 가진 사용자를 찾는다.
-  me() {}
+  @Query((returns) => User)
+  @UseGuards(AuthGuard) // Guard를 사용하는 방법
+  me(@AuthUser() authUser: User) {
+    return authUser;
+  }
 }
