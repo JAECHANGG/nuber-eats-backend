@@ -1,3 +1,4 @@
+import { EditProfileInput } from './dtos/edit-profile.dto';
 import { JwtService } from 'src/jwt/jwt.service';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -70,5 +71,27 @@ export class UsersService {
 
   async findById(id: number): Promise<User> {
     return this.users.findOne({ where: { id } });
+  }
+
+  async editProfile(
+    userId: number,
+    { email, password }: EditProfileInput,
+  ): Promise<User> {
+    // 1번째 값으로 userId에 해당하는 user 정보를 찾고, 2번째 값으로 수정한 email과 password 값을 받아 업데이트합니다.
+    // update() 메서드는 entity를 업데이트 하는 것이 아니라 db에 query를 보냅니다.
+    // 따라서 BeforeUpdate() 데코레이터를 사용해도 해시화되지 않는 문제가 발생합니다.
+
+    // 해결방법 : save() 메서드를 사용합니다.
+    // save() 메서드는 db에 있는 모든 entity를 저장합니다. db에 해당 데이터가 없으면 생성하고 있으면 update 합니다.
+
+    // return this.users.update(userId, { email, password });
+    const user = await this.users.findOne({ where: { id: userId } }); // entity를 가져옵니다.
+    if (email) {
+      user.email = email;
+    }
+    if (password) {
+      user.password = password;
+    }
+    return this.users.save(user);
   }
 }
