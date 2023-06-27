@@ -1,3 +1,4 @@
+import { Verification } from './entities/verification.entity';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,7 +8,7 @@ import { UsersResolver } from './users.resolver';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([User, Verification])],
   providers: [UsersResolver, UsersService, ConfigService],
   exports: [UsersService],
 })

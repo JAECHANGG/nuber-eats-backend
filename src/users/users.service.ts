@@ -1,3 +1,4 @@
+import { Verification } from './entities/verification.entity';
 import { EditProfileInput } from './dtos/edit-profile.dto';
 import { JwtService } from 'src/jwt/jwt.service';
 import { Injectable } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { ConfigService } from '@nestjs/config';
 export class UsersService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(Verification)
+    private readonly verifications: Repository<Verification>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -25,7 +28,14 @@ export class UsersService {
       if (exists) {
         return { ok: false, error: 'There is a user with that email already.' };
       }
-      await this.users.save(this.users.create({ email, password, role })); // 없으면 user 생성후 저장
+
+      // 없으면 user 생성후 저장
+      const user = await this.users.save(
+        this.users.create({ email, password, role }),
+      );
+
+      // 생성된 user를 받아 verifications에 생성후 저장
+      await this.verifications.save(this.verifications.create({ user }));
       return { ok: true };
     } catch (e) {
       return { ok: false, error: "Couldn't create account." };
@@ -38,7 +48,10 @@ export class UsersService {
   }: LoginInput): Promise<{ ok: boolean; error?: string; token?: string }> {
     try {
       // 1. email을 가진 User을 찾아라
-      const user = await this.users.findOne({ where: { email } });
+      const user = await this.users.findOne({
+        where: { email },
+        select: ['id', 'password'],
+      });
       if (!user) {
         return {
           ok: false,
@@ -88,10 +101,30 @@ export class UsersService {
     const user = await this.users.findOne({ where: { id: userId } }); // entity를 가져옵니다.
     if (email) {
       user.email = email;
+      user.verified = false;
+      await this.verifications.save(this.verifications.create({ user }));
     }
     if (password) {
       user.password = password;
     }
     return this.users.save(user);
+  }
+
+  async verifyEmail(code: string): Promise<boolean> {
+    try {
+      const verification = await this.verifications.findOne({
+        where: { code },
+        relations: ['user'],
+      });
+      if (verification) {
+        verification.user.verified = true;
+        this.users.save(verification.user);
+        return true;
+      }
+      throw new Error();
+    } catch (e) {
+      console.log(e);
+      return false;
+    }
   }
 }
