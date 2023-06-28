@@ -1,16 +1,20 @@
-import { Verification } from './entities/verification.entity';
-import { EditProfileInput } from './dtos/edit-profile.dto';
-import { JwtService } from 'src/jwt/jwt.service';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateAccountInput } from './dtos/create-account.dto';
-import { LoginInput } from './dtos/login.dto';
+import {
+  CreateAccountInput,
+  CreateAccountOutput,
+} from './dtos/create-account.dto';
+import { LoginInput, LoginOutput } from './dtos/login.dto';
 import { User } from './entities/user.entity';
-import { ConfigService } from '@nestjs/config';
+import { JwtService } from 'src/jwt/jwt.service';
+import { EditProfileInput, EditProfileOutput } from './dtos/edit-profile.dto';
+import { Verification } from './entities/verification.entity';
+import { VerifyEmailOutput } from './dtos/verify-email.dto';
+import { UserProfileOutput } from './dtos/user-profile.dto';
 
 @Injectable()
-export class UsersService {
+export class UserService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Verification)
@@ -22,32 +26,28 @@ export class UsersService {
     email,
     password,
     role,
-  }: CreateAccountInput): Promise<{ ok: boolean; error?: string }> {
+  }: CreateAccountInput): Promise<CreateAccountOutput> {
     try {
-      const exists = await this.users.findOne({ where: { email } }); // 새로운 user 확인
+      const exists = await this.users.findOne({ where: { email } });
       if (exists) {
-        return { ok: false, error: 'There is a user with that email already.' };
+        return { ok: false, error: 'There is a user with that email already' };
       }
-
-      // 없으면 user 생성후 저장
       const user = await this.users.save(
         this.users.create({ email, password, role }),
       );
-
-      // 생성된 user를 받아 verifications에 생성후 저장
-      await this.verifications.save(this.verifications.create({ user }));
+      await this.verifications.save(
+        this.verifications.create({
+          user,
+        }),
+      );
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: "Couldn't create account." };
+      return { ok: false, error: "Couldn't create account" };
     }
   }
 
-  async login({
-    email,
-    password,
-  }: LoginInput): Promise<{ ok: boolean; error?: string; token?: string }> {
+  async login({ email, password }: LoginInput): Promise<LoginOutput> {
     try {
-      // 1. email을 가진 User을 찾아라
       const user = await this.users.findOne({
         where: { email },
         select: ['id', 'password'],
@@ -58,8 +58,6 @@ export class UsersService {
           error: 'User not found',
         };
       }
-
-      // 2. password가 맞는지 확인해라
       const passwordCorrect = await user.checkPassword(password);
       if (!passwordCorrect) {
         return {
@@ -68,7 +66,7 @@ export class UsersService {
         };
       }
 
-      // 3. JWT를 만들고 User에게 주기
+      // JWT 만들고 user에게 주기
       const token = this.jwtService.sign(user.id);
       return {
         ok: true,
@@ -82,35 +80,52 @@ export class UsersService {
     }
   }
 
-  async findById(id: number): Promise<User> {
-    return this.users.findOne({ where: { id } });
+  async findById(id: number): Promise<UserProfileOutput> {
+    try {
+      const user = await this.users.findOne({ where: { id } });
+      if (user) {
+        return {
+          ok: true,
+          user: user,
+        };
+      }
+    } catch (error) {
+      return { ok: false, error: 'User Not Found' };
+    }
   }
 
   async editProfile(
     userId: number,
     { email, password }: EditProfileInput,
-  ): Promise<User> {
-    // 1번째 값으로 userId에 해당하는 user 정보를 찾고, 2번째 값으로 수정한 email과 password 값을 받아 업데이트합니다.
-    // update() 메서드는 entity를 업데이트 하는 것이 아니라 db에 query를 보냅니다.
-    // 따라서 BeforeUpdate() 데코레이터를 사용해도 해시화되지 않는 문제가 발생합니다.
+  ): Promise<EditProfileOutput> {
+    try {
+      // 1번째 값으로 userId에 해당하는 user 정보를 찾고, 2번째 값으로 수정한 email과 password 값을 받아 업데이트합니다.
+      // update() 메서드는 entity를 업데이트 하는 것이 아니라 db에 query를 보냅니다.
+      // 따라서 BeforeUpdate() 데코레이터를 사용해도 해시화되지 않는 문제가 발생합니다.
 
-    // 해결방법 : save() 메서드를 사용합니다.
-    // save() 메서드는 db에 있는 모든 entity를 저장합니다. db에 해당 데이터가 없으면 생성하고 있으면 update 합니다.
+      // 해결방법 : save() 메서드를 사용합니다.
+      // save() 메서드는 db에 있는 모든 entity를 저장합니다. db에 해당 데이터가 없으면 생성하고 있으면 update 합니다.
 
-    // return this.users.update(userId, { email, password });
-    const user = await this.users.findOne({ where: { id: userId } }); // entity를 가져옵니다.
-    if (email) {
-      user.email = email;
-      user.verified = false;
-      await this.verifications.save(this.verifications.create({ user }));
+      // return this.users.update(userId, { email, password });
+      const user = await this.users.findOne({ where: { id: userId } });
+      if (email) {
+        user.email = email;
+        user.verified = false;
+        await this.verifications.save(this.verifications.create({ user }));
+      }
+      if (password) {
+        user.password = password;
+      }
+      await this.users.save(user);
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return { ok: false, error: 'Could not update profile.' };
     }
-    if (password) {
-      user.password = password;
-    }
-    return this.users.save(user);
   }
 
-  async verifyEmail(code: string): Promise<boolean> {
+  async verifyEmail(code: string): Promise<VerifyEmailOutput> {
     try {
       const verification = await this.verifications.findOne({
         where: { code },
@@ -119,12 +134,11 @@ export class UsersService {
       if (verification) {
         verification.user.verified = true;
         this.users.save(verification.user);
-        return true;
+        return { ok: true };
       }
-      throw new Error();
-    } catch (e) {
-      console.log(e);
-      return false;
+      return { ok: false, error: 'Verification not found.' };
+    } catch (error) {
+      return { ok: false, error };
     }
   }
 }
