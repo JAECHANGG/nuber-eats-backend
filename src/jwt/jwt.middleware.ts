@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Response, Request } from 'express';
-import { UsersService } from 'src/users/users.service';
+import { UserService } from 'src/users/users.service';
 import { JwtService } from './jwt.service';
 
 // middleware는 express에서 사용할 때 처럼 next() 함수를 호출해야 한다.
@@ -10,7 +10,7 @@ import { JwtService } from './jwt.service';
 export class JwtMiddleware implements NestMiddleware {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly usersService: UsersService,
+    private readonly userService: UserService,
   ) {}
   async use(req: Request, res: Response, next: NextFunction) {
     if ('x-jwt' in req.headers) {
@@ -18,7 +18,7 @@ export class JwtMiddleware implements NestMiddleware {
       try {
         const decoded = this.jwtService.verify(token.toString());
         if (typeof decoded === 'object' && decoded.hasOwnProperty('id')) {
-          const user = await this.usersService.findById(decoded['id']);
+          const user = await this.userService.findById(decoded['id']);
           req['user'] = user;
         }
       } catch (e) {}
