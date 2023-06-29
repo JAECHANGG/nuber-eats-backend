@@ -34,7 +34,9 @@ type MockRepository<T = any> = Partial<Record<keyof Repository<T>, jest.Mock>>;
 describe('UserService', () => {
   // 서비스를 module 밖에서 사용하기 위한 변수
   let service: UserService;
+  let mailService: MailService;
   let usersRepository: MockRepository<User>;
+  let verificationsRepository: MockRepository<Verification>;
 
   // 모든 테스트를 하기 전에 테스트 모듈을 만듭니다.
   beforeAll(async () => {
@@ -62,7 +64,9 @@ describe('UserService', () => {
     }).compile();
 
     service = module.get<UserService>(UserService);
+    mailService = module.get<MailService>(MailService);
     usersRepository = module.get(getRepositoryToken(User));
+    verificationsRepository = module.get(getRepositoryToken(Verification));
   });
 
   it('should be defined', () => {
@@ -74,8 +78,8 @@ describe('UserService', () => {
   // createAccount에서 사용하는 함수들을 하나하나 검사하는 테스트 함수들을 그룹화합니다.
   describe('createAccount', () => {
     const createAccountArgs = {
-      email: '',
-      password: '',
+      email: 'bs@test.com',
+      password: 'bs.test',
       role: 0,
     };
     it('should fail if user exists', async () => {
@@ -95,11 +99,34 @@ describe('UserService', () => {
     it('should create a new user', async () => {
       usersRepository.findOne.mockResolvedValue(undefined); // 실제 createAccount 메서드에서 exists 값이 없을 때 다음 줄이 실행되기 때문에 undefined 값을 줍니다.
       usersRepository.create.mockReturnValue(createAccountArgs); // create의 return 값을 mock 합니다.
-      await service.createAccount(createAccountArgs);
+      usersRepository.save.mockResolvedValue(createAccountArgs); // save의 return 값을 mock 합니다.
+      verificationsRepository.create.mockReturnValue({
+        user: createAccountArgs,
+      });
+      verificationsRepository.save.mockResolvedValue({ code: 'code' });
+
+      const result = await service.createAccount(createAccountArgs);
+
       expect(usersRepository.create).toHaveBeenCalledTimes(1); // 함수가 단 1번 불린다고 기대함
       expect(usersRepository.create).toHaveBeenCalledWith(createAccountArgs); // 함수가 어떤 값과 같이 호출되는지 테스트
       expect(usersRepository.save).toHaveBeenCalledTimes(1);
       expect(usersRepository.save).toHaveBeenCalledWith(createAccountArgs);
+      expect(verificationsRepository.create).toHaveBeenCalledTimes(1);
+      expect(verificationsRepository.create).toHaveBeenCalledWith({
+        user: createAccountArgs,
+      });
+      expect(verificationsRepository.save).toHaveBeenCalledTimes(1);
+      expect(verificationsRepository.save).toHaveBeenCalledWith({
+        user: createAccountArgs,
+      });
+      expect(mailService.sendVerificationEmail).toHaveBeenCalledTimes(1);
+      expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
+        expect.any(String), // 어떤 argument로 function을 어떻게 호출했는지 확인할 수 있습니다.
+        expect.any(String),
+      );
+
+      // result가 { ok: true }와 동일한지 확인합니다.
+      expect(result).toEqual({ ok: true });
     });
   });
 
