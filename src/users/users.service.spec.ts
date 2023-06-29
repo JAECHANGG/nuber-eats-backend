@@ -11,11 +11,11 @@ import { Repository } from 'typeorm';
 
 // 가짜 함수
 // UserService를 독립적으로 테스트하기 위해 Injection한 Repository를 사용하지 않고 가짜 레퍼스토리 사용
-const mockRepository = {
+const mockRepository = () => ({
   findOne: jest.fn(),
   save: jest.fn(),
   create: jest.fn(),
-};
+});
 
 const mockJwtService = {
   sign: jest.fn(),
@@ -44,11 +44,11 @@ describe('UserService', () => {
         UserService,
         {
           provide: getRepositoryToken(User),
-          useValue: mockRepository,
+          useValue: mockRepository(),
         },
         {
           provide: getRepositoryToken(Verification),
-          useValue: mockRepository,
+          useValue: mockRepository(),
         },
         {
           provide: JwtService,
@@ -73,7 +73,34 @@ describe('UserService', () => {
 
   // createAccount에서 사용하는 함수들을 하나하나 검사하는 테스트 함수들을 그룹화합니다.
   describe('createAccount', () => {
-    it('should fail if user exists', () => {});
+    const createAccountArgs = {
+      email: '',
+      password: '',
+      role: 0,
+    };
+    it('should fail if user exists', async () => {
+      usersRepository.findOne.mockResolvedValue({
+        id: 1,
+        email: 'amamamamaa',
+      });
+
+      const result = await service.createAccount(createAccountArgs);
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'There is a user with that email already',
+      });
+    });
+
+    it('should create a new user', async () => {
+      usersRepository.findOne.mockResolvedValue(undefined); // 실제 createAccount 메서드에서 exists 값이 없을 때 다음 줄이 실행되기 때문에 undefined 값을 줍니다.
+      usersRepository.create.mockReturnValue(createAccountArgs); // create의 return 값을 mock 합니다.
+      await service.createAccount(createAccountArgs);
+      expect(usersRepository.create).toHaveBeenCalledTimes(1); // 함수가 단 1번 불린다고 기대함
+      expect(usersRepository.create).toHaveBeenCalledWith(createAccountArgs); // 함수가 어떤 값과 같이 호출되는지 테스트
+      expect(usersRepository.save).toHaveBeenCalledTimes(1);
+      expect(usersRepository.save).toHaveBeenCalledWith(createAccountArgs);
+    });
   });
 
   it.todo('login');
