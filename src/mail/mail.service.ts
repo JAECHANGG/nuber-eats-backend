@@ -13,11 +13,7 @@ export class MailService {
   }
 
   // email을 보내는 메서드
-  private async sendEmail(
-    subject: string,
-    template: string,
-    emailVars: EmailVar[],
-  ) {
+  async sendEmail(subject: string, template: string, emailVars: EmailVar[]) {
     const mailgun = new Mailgun(formData);
     const client = mailgun.client({
       username: 'Nuber',
